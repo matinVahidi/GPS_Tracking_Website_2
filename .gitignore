@@ -1,0 +1,10 @@
+node_modules/
+.env
+
+# https related stuff
+localhost+2.pem
+localhost+2-key.pem
+
+uploads/
+
+/migrations

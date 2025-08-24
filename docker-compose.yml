@@ -1,0 +1,25 @@
+services:                 # Top-level section that lists all containers (services) to run.
+  db:                     # The service name you'll use (e.g., "db"). Also becomes the hostname on the compose network.
+    image: timescale/timescaledb-ha:pg16
+                          # Container image. This one includes PostgreSQL 16 + TimescaleDB + PostGIS.
+    container_name: app-db
+                          # Human-friendly name for the container (optional). Without it, Docker auto-generates a name.
+    environment:          # Environment variables passed into the container at startup.
+      POSTGRES_USER: app  # The DB superuser that will be created if the data dir is empty.
+      POSTGRES_PASSWORD: app
+                          # Password for the POSTGRES_USER above.
+      POSTGRES_DB: app    # A default database to create (handy so you can connect immediately).
+    ports:
+      - "5432:5432"       # Maps host port 5432 -> container port 5432, so your app/CLI connects via localhost:5432.
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+                          # Named volume for persistent data. Survives container recreation.
+    healthcheck:          # Lets Docker/Compose know when the DB is actually ready to accept connections.
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+                          # Command run inside the container: returns 0 when PostgreSQL is ready.
+      interval: 5s        # How often to run the check.
+      timeout: 5s         # How long to wait for the check to succeed.
+      retries: 20         # How many failures before the container is marked unhealthy.
+
+volumes:                  # Declare named volumes used by services above.
+  dbdata:                 # The "dbdata" volume definition (using default local driver).

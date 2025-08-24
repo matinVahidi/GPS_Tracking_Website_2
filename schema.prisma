@@ -1,0 +1,167 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password     String
+  name         String?
+  lastName     String?
+  companyName  String?
+  phoneNumber  String?
+  nationalCode String?
+  role         String?
+  landline     String?
+  faxNumber    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  addresses       Address[]
+  wallet          Wallet?
+  services        Service[]
+  devices         Device[]        @relation("UserOwnedDevices")
+  visibleDivices  Device[]        @relation("UserVisibleDevices")
+  requests        Request[]
+  grantedAccesses ServiceAccess[] @relation("UserGrantedAccesses")
+}
+
+model Address {
+  id         String  @id @default(uuid())
+  province   String?
+  city       String?
+  postalCode String?
+  address    String?
+  areaCode   String?
+  landline   String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Wallet {
+  // one-to-one with User
+  userId  String  @id
+  balance Decimal @default(0.0) @db.Decimal(18, 2)
+
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rechargeRequests Request[]           @relation("WalletRechargeRequests")
+  transactions     WalletTransaction[]
+}
+
+model WalletTransaction {
+  id             String   @id @default(uuid())
+  walletUserId   String
+  amount         Decimal  @db.Decimal(18, 2)
+  direction      String
+  otherSideEmail String
+  description    String?
+  createdAt      DateTime @default(now())
+
+  wallet Wallet @relation(fields: [walletUserId], references: [userId], onDelete: Cascade)
+}
+
+model Request {
+  id      String   @id @default(uuid())
+  type    String
+  status  String // "pending" etc.
+  date    DateTime @db.Timestamptz(6)
+  details Json?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  rechargeWalletUserId String?
+  rechargeWallet       Wallet? @relation("WalletRechargeRequests", fields: [rechargeWalletUserId], references: [userId], onDelete: SetNull)
+}
+
+model SubPlan {
+  name         String  @id
+  duration     Int // months
+  devicesCount Int
+  price        BigInt // fits your large integers
+  subPrice     BigInt
+  discount     Int
+  popular      Boolean @default(false)
+
+  services Service[] @relation("SubPlanToServices")
+}
+
+model Service {
+  id             String    @id @default(uuid())
+  status         String    @default("pending")
+  expirationDate DateTime?
+  userId         String
+  subPlanName    String
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subPlan SubPlan @relation("SubPlanToServices", fields: [subPlanName], references: [name])
+
+  devices  Device[]        @relation("UserOwnedDevices")
+  accesses ServiceAccess[]
+}
+
+model ServiceAccess {
+  id           String  @id @default(uuid())
+  serviceId    String
+  deviceId     String
+  granteeId    String? // if the grantee is an existing user
+  granteeEmail String // fallback if shared by email only
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  grantee User?   @relation("UserGrantedAccesses", fields: [granteeId], references: [id])
+  device  Device  @relation("DeviceServiceAccesses", fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, deviceId, granteeEmail])
+}
+
+model Device {
+  id           String    @id @default(uuid())
+  model        String    @default("basic")
+  name         String
+  status       String    @default("inactive")
+  connected    Boolean   @default(true)
+  lastReceived DateTime?
+
+  userId String
+  user   User   @relation("UserOwnedDevices", fields: [userId], references: [id], onDelete: SetNull)
+
+  visibleToUsers User[] @relation("UserVisibleDevices")
+
+  serviceId String?
+  service   Service? @relation("UserOwnedDevices", fields: [serviceId], references: [id], onDelete: SetNull)
+
+  gpsRecords GpsRecord[]
+
+  accesses ServiceAccess[] @relation("DeviceServiceAccesses")
+
+  @@index([serviceId])
+  @@index([userId])
+}
+
+model GpsRecord {
+  id       BigInt   @default(autoincrement())
+  deviceId String
+  ts       DateTime @db.Timestamptz(6)
+
+  latitude  Decimal @db.Decimal(9, 6)
+  longitude Decimal @db.Decimal(9, 6)
+  accuracy  Float?
+  altitude  Float?
+  speed     Float?
+  heading   Float?
+  battery   Float?
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@id([id, ts])
+  @@index([deviceId, ts(sort: Desc)])
+  @@map("gps_records")
+}
