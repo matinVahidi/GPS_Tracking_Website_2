@@ -56,11 +56,16 @@ router.post('/signup', signupValidator, async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body
 
+  const pass = await bcrypt.hash(password, 10);
+  console.log(pass);
+
+
   // Admin login (uses env creds). Only change: fix compare order + await for bcrypt.
   try {
     const isAdminPasswordCorrect = ADMIN_PASSWORD
       ? await bcrypt.compare(password, ADMIN_PASSWORD)
       : false
+
 
     if (email === ADMIN_EMAIL && isAdminPasswordCorrect) {
       const token = jwt.sign({ email: ADMIN_EMAIL, role: 'admin' }, JWT_SECRET, { expiresIn: '1h' })

@@ -91,9 +91,8 @@ const calculateHeading = (lastRecord, secondLastRecord) => {
 export const fillMissingData = async (req, res, next) => {
   try {
     const gpsRecord = req.body;
-
-    if (gpsRecord.speed == null || gpsRecord.heading == null) {
-      const deviceId = gpsRecord.deviceId;
+    
+    const deviceId = gpsRecord.deviceId;
 
       if (!deviceId) {
         return res.status(400).json({ message: 'Device ID is required' });
@@ -106,15 +105,11 @@ export const fillMissingData = async (req, res, next) => {
         const lastRecord = recentRecords[0];
         const secondLastRecord = recentRecords[1];
 
-        if (gpsRecord.speed == null) {
-          gpsRecord.speed = calculateSpeed(lastRecord, secondLastRecord);
-        }
+        gpsRecord.speed = calculateSpeed(lastRecord, secondLastRecord);
 
-        if (gpsRecord.heading == null) {
-          gpsRecord.heading = calculateHeading(lastRecord, secondLastRecord);
-        }
+        gpsRecord.heading = calculateHeading(lastRecord, secondLastRecord);
       }
-    }
+
 
     next();
   } catch (error) {
